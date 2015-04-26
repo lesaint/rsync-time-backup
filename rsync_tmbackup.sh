@@ -272,6 +272,7 @@ while : ; do
     CMD="$CMD --compress"
     CMD="$CMD --numeric-ids"
     CMD="$CMD --links"
+    CMD="$CMD --safe-links"
     CMD="$CMD --hard-links"
     CMD="$CMD --one-file-system"
     CMD="$CMD --archive"
