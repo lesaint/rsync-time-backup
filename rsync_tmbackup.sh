@@ -22,7 +22,7 @@ fn_log_info_cmd()  {
 # -----------------------------------------------------------------------------
 
 fn_terminate_script() {
-    fn_log_info "SIGINT caught."
+    fn_log_info "SIGINT caught, deleting $PID_FILE and exiting."
     rm -f -- "$PID_FILE"
     exit 1
 }
@@ -127,6 +127,23 @@ for ARG in "$SRC_FOLDER" "$DEST_FOLDER" "$EXCLUSION_FILE"; do
 done
 
 # -----------------------------------------------------------------------------
+# Handle case where a backup is already running
+# -----------------------------------------------------------------------------
+PROFILE_FOLDER="$HOME/.$APPNAME"
+PID_FILE="$PROFILE_FOLDER/$APPNAME.pid"
+
+if [ -f "$PID_FILE" ]; then
+    PID="$(cat $PID_FILE)"
+    if [ -n "$(ps --pid "$PID" 2>&1 | grep "$PID")" ]; then
+        fn_log_error "Previous backup task is still active - aborting."
+        exit 1
+    fi
+fi
+
+fn_log_info "Creating $PID_FILE"
+echo "$$" > "$PID_FILE"
+
+# -----------------------------------------------------------------------------
 # Check that the destination drive is a backup drive
 # -----------------------------------------------------------------------------
 
@@ -145,6 +162,15 @@ if [ -z "$(fn_find_backup_marker "$DEST_FOLDER")" ]; then
 fi
 
 # -----------------------------------------------------------------------------
+# Create profile folder if it doesn't exist
+# -----------------------------------------------------------------------------
+
+if [ ! -d "$PROFILE_FOLDER" ]; then
+    fn_log_info "Creating profile folder in '$PROFILE_FOLDER'..."
+    mkdir -- "$PROFILE_FOLDER"
+fi
+
+# -----------------------------------------------------------------------------
 # Setup additional variables
 # -----------------------------------------------------------------------------
 
@@ -155,30 +181,10 @@ KEEP_ALL_DATE=$((EPOCH - 86400))       # 1 day ago
 KEEP_DAILIES_DATE=$((EPOCH - 2678400)) # 31 days ago
 
 export IFS=$'\n' # Better for handling spaces in filenames.
-PROFILE_FOLDER="$HOME/.$APPNAME"
 DEST="$DEST_FOLDER/$NOW"
 PREVIOUS_DEST="$(fn_find_backups | head -n 1)"
 INPROGRESS_FILE="$DEST_FOLDER/backup.inprogress"
-PID_FILE="$PROFILE_FOLDER/$APPNAME.pid"
 
-# -----------------------------------------------------------------------------
-# Create profile folder if it doesn't exist
-# -----------------------------------------------------------------------------
-
-if [ ! -d "$PROFILE_FOLDER" ]; then
-    fn_log_info "Creating profile folder in '$PROFILE_FOLDER'..."
-    mkdir -- "$PROFILE_FOLDER"
-fi
-
-# -----------------------------------------------------------------------------
-# Handle case where a backup is already running
-# -----------------------------------------------------------------------------
-if [ -f "$PID_FILE" ]; then
-    if pgrep -F "$PID_FILE" "$APPNAME"> /dev/null 2>&1 ; then
-        fn_log_error "Previous backup task is still active - aborting."
-        exit 1
-    fi
-fi
 
 # -----------------------------------------------------------------------------
 # Handle case where a previous backup failed or was interrupted.
@@ -290,7 +296,6 @@ while : ; do
     fn_log_info "Running command:"
     fn_log_info "$CMD"
 
-    echo "$$" > "$PID_FILE"
     fn_touch "$INPROGRESS_FILE"
     eval $CMD
 
@@ -335,6 +340,7 @@ while : ; do
     fn_ln "$(basename -- "$DEST")" "$DEST_FOLDER/latest"
 
     fn_rm "$INPROGRESS_FILE"
+    fn_log_info "Deleting $PID_FILE"
     rm -f -- "$PID_FILE"
     rm -f -- "$LOG_FILE"
 
