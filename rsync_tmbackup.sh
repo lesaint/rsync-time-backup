@@ -284,6 +284,7 @@ while : ; do
     CMD="$CMD --archive"
     CMD="$CMD --itemize-changes"
     CMD="$CMD --verbose"
+    CMD="$CMD --human-readable"
     CMD="$CMD --log-file '$LOG_FILE'"
     if [ -n "$EXCLUSION_FILE" ]; then
         # We've already checked that $EXCLUSION_FILE doesn't contain a single quote
