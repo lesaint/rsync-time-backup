@@ -140,6 +140,15 @@ if [ -f "$PID_FILE" ]; then
     fi
 fi
 
+# -----------------------------------------------------------------------------
+# Create profile folder if it doesn't exist
+# -----------------------------------------------------------------------------
+
+if [ ! -d "$PROFILE_FOLDER" ]; then
+    fn_log_info "Creating profile folder in '$PROFILE_FOLDER'..."
+    mkdir -- "$PROFILE_FOLDER"
+fi
+
 fn_log_info "Creating $PID_FILE"
 echo "$$" > "$PID_FILE"
 
@@ -159,15 +168,6 @@ if [ -z "$(fn_find_backup_marker "$DEST_FOLDER")" ]; then
     fn_log_info_cmd "mkdir -p -- \"$DEST_FOLDER\" ; touch \"$(fn_backup_marker_path "$DEST_FOLDER")\""
     fn_log_info ""
     exit 1
-fi
-
-# -----------------------------------------------------------------------------
-# Create profile folder if it doesn't exist
-# -----------------------------------------------------------------------------
-
-if [ ! -d "$PROFILE_FOLDER" ]; then
-    fn_log_info "Creating profile folder in '$PROFILE_FOLDER'..."
-    mkdir -- "$PROFILE_FOLDER"
 fi
 
 # -----------------------------------------------------------------------------
