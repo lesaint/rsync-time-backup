@@ -276,11 +276,19 @@ while : ; do
     fi
     CMD="$CMD --compress"
     CMD="$CMD --numeric-ids"
-    CMD="$CMD --links"
     CMD="$CMD --safe-links"
     CMD="$CMD --hard-links"
     CMD="$CMD --one-file-system"
-    CMD="$CMD --archive"
+###     start --archive
+    CMD="$CMD --recursive"
+    CMD="$CMD --links"
+    CMD="$CMD --perms"
+    CMD="$CMD --times"
+    CMD="$CMD --group"
+    CMD="$CMD --owner"
+    CMD="$CMD --devices"
+    CMD="$CMD --specials"
+###     end --archive
     CMD="$CMD --itemize-changes"
     CMD="$CMD --verbose"
     CMD="$CMD --human-readable"
