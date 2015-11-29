@@ -284,8 +284,8 @@ while : ; do
     CMD="$CMD --links"
     CMD="$CMD --perms"
     CMD="$CMD --times"
-    CMD="$CMD --group"
-    CMD="$CMD --owner"
+#    CMD="$CMD --group"
+#    CMD="$CMD --owner"
     CMD="$CMD --devices"
     CMD="$CMD --specials"
 ###     end --archive
