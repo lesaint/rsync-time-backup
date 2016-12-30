@@ -101,8 +101,12 @@ fn_ln() {
     fn_run_cmd "ln -s -- $1 $2"
 }
 
-fn_chown() {
+fn_chown_dir() {
     fn_run_cmd "chown -R -- $1 $2"
+}
+
+fn_chown_link() {
+    fn_run_cmd "chown -h -- $1 $2"
 }
 
 # -----------------------------------------------------------------------------
@@ -117,7 +121,7 @@ SSH_FOLDER_PREFIX=""
 SRC_FOLDER="${1%/}"
 DEST_FOLDER="${2%/}"
 EXCLUSION_FILE="$3"
-OWNER_AND_GROUP="phan:home_goup"
+OWNER_AND_GROUP="phan:home_group"
 
 fn_parse_ssh
 
@@ -350,9 +354,9 @@ while : ; do
     # -----------------------------------------------------------------------------
 
     fn_rm "$DEST_FOLDER/latest"
-    fn_chown "$OWNER_AND_GROUP" "$(basename -- "$DEST")"
+    fn_chown_dir "$OWNER_AND_GROUP" "$DEST"
     fn_ln "$(basename -- "$DEST")" "$DEST_FOLDER/latest"
-    fn_chown "$OWNER_AND_GROUP" "$DEST_FOLDER/latest"
+    fn_chown_link "$OWNER_AND_GROUP" "$DEST_FOLDER/latest"
 
     fn_rm "$INPROGRESS_FILE"
     fn_log_info "Deleting $PID_FILE"
