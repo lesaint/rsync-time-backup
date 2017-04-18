@@ -106,7 +106,11 @@ fn_chown_dir() {
 }
 
 fn_chown_link() {
-    fn_run_cmd "chown -h -- $1 $2"
+    local ownerAndGroup="$1"
+    local target="$2"
+    if [ -n "$ownerAndGroup" ]; then
+        fn_run_cmd "chown -h -- $ownerAndGroup $target"
+    fi
 }
 
 # -----------------------------------------------------------------------------
@@ -121,7 +125,7 @@ SSH_FOLDER_PREFIX=""
 SRC_FOLDER="${1%/}"
 DEST_FOLDER="${2%/}"
 EXCLUSION_FILE="$3"
-OWNER_AND_GROUP="phan:home_group"
+OWNER_AND_GROUP="$4"
 
 fn_parse_ssh
 
