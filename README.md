@@ -6,7 +6,7 @@ On OS X, it has a few disadvantages compared to Time Machine - in particular it 
 
 # Installation
 
-	git clone https://github.com/laurent22/rsync-time-backup
+	git clone https://github.com/lesaint/rsync-time-backup
 
 # Usage
 
