@@ -33,6 +33,20 @@ trap 'fn_terminate_script' SIGINT
 # Small utility functions for reducing code duplication
 # -----------------------------------------------------------------------------
 
+fn_is_not_busybox_command() {
+    local cmd="$1"
+    [ -z "$(eval "$1 --help 2>&1 | grep -i BusyBox")" ]
+}
+
+fn_process_exists() {
+    local pid="$1"
+    if fn_is_not_busybox_command "ps"; then
+        [ -n "$(ps --pid "$pid" 2>&1 | grep "$pid")" ]
+    else
+        [ -f "/proc/$pid/cmdline" ]
+    fi
+}
+
 fn_parse_date() {
     # Converts YYYY-MM-DD-HHMMSS to YYYY-MM-DD HH:MM:SS and then to Unix Epoch.
     case "$OSTYPE" in
@@ -148,7 +162,7 @@ PID_FILE="$PROFILE_FOLDER/$APPNAME.pid"
 
 if [ -f "$PID_FILE" ]; then
     PID="$(cat $PID_FILE)"
-    if [ -n "$(ps --pid "$PID" 2>&1 | grep "$PID")" ]; then
+    if fn_process_exists "$PID"; then
         fn_log_error "Previous backup task is still active - aborting."
         exit 1
     fi
