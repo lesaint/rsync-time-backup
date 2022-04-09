@@ -73,8 +73,12 @@ fn_expire_backup() {
     fn_rm "$1"
 }
 
+fn_is_ssh_directory() {
+    [[ "$1" =~ ^[A-Za-z0-9\._%\+\-]+@[A-Za-z0-9.\-]+\:.+$ ]]
+}
+
 fn_parse_ssh() {
-    if [[ "$DEST_FOLDER" =~ ^[A-Za-z0-9\._%\+\-]+@[A-Za-z0-9.\-]+\:.+$ ]]; then
+    if fn_is_ssh_directory "$DEST_FOLDER"; then
         SSH_USER=$(echo "$DEST_FOLDER" | sed -E  's/^([A-Za-z0-9\._%\+\-]+)@([A-Za-z0-9.\-]+)\:(.+)$/\1/')
         SSH_HOST=$(echo "$DEST_FOLDER" | sed -E  's/^([A-Za-z0-9\._%\+\-]+)@([A-Za-z0-9.\-]+)\:(.+)$/\2/')
         SSH_DEST_FOLDER=$(echo "$DEST_FOLDER" | sed -E  's/^([A-Za-z0-9\._%\+\-]+)@([A-Za-z0-9.\-]+)\:(.+)$/\3/')
@@ -140,6 +144,11 @@ SRC_FOLDER="${1%/}"
 DEST_FOLDER="${2%/}"
 EXCLUSION_FILE="$3"
 OWNER_AND_GROUP="$4"
+
+if fn_is_ssh_directory "$SRC_FOLDER"; then
+    fn_log_error "Source folder can't be remote"
+    exit 1
+fi
 
 fn_parse_ssh
 
