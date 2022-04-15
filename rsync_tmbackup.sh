@@ -120,7 +120,11 @@ fn_dest_ln() {
 }
 
 fn_dest_chown_dir() {
-    fn_dest_run_cmd "chown -R -- $1 $2"
+    local ownerAndGroup="$1"
+    local target="$2"
+    if [ -n "$ownerAndGroup" ]; then
+        fn_dest_run_cmd "chown -R -- $ownerAndGroup $target"
+    fi
 }
 
 fn_dest_chown_link() {
