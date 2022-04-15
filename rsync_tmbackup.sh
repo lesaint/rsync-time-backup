@@ -38,7 +38,7 @@ fn_is_not_busybox_command() {
     [ -z "$(eval "$1 --help 2>&1 | grep -i BusyBox")" ]
 }
 
-fn_process_exists() {
+fn_local_process_exists() {
     local pid="$1"
     if fn_is_not_busybox_command "ps"; then
         [ -n "$(ps --pid "$pid" 2>&1 | grep "$pid")" ]
@@ -56,21 +56,21 @@ fn_parse_date() {
     esac
 }
 
-fn_find_backups() {
-    #fn_run_cmd "find "$DEST_FOLDER" -type d -name "????-??-??-??????" | sort -r"
-    fn_run_cmd "(ls "${DEST_FOLDER}/????-??-??-??????" -1 -d | sort -r | sed 's:/*$::')"
+fn_dest_find_backups() {
+    #fn_dest_run_cmd "find "$DEST_FOLDER" -type d -name "????-??-??-??????" | sort -r"
+    fn_dest_run_cmd "(ls "${DEST_FOLDER}/????-??-??-??????" -1 -d | sort -r | sed 's:/*$::')"
 }
 
-fn_expire_backup() {
+fn_dest_expire_backup() {
     # Double-check that we're on a backup destination to be completely
     # sure we're deleting the right folder
-    if [ -z "$(fn_find_backup_marker "$(dirname -- "$1")")" ]; then
+    if [ -z "$(fn_dest_find_backup_marker "$(dirname "$1")")" ]; then
         fn_log_error "$1 is not on a backup destination - aborting."
         exit 1
     fi
 
     fn_log_info "Expiring $1"
-    fn_rm "$1"
+    fn_dest_rm "$1"
 }
 
 fn_is_ssh_directory() {
@@ -87,7 +87,7 @@ fn_parse_ssh() {
     fi
 }
 
-fn_run_cmd() {
+fn_dest_run_cmd() {
     if [ -n "$SSH_CMD" ]; then
         eval "$SSH_CMD '$1'"
     else
@@ -95,39 +95,39 @@ fn_run_cmd() {
     fi
 }
 
-fn_find() {
-    fn_run_cmd "find $1"  2>/dev/null
+fn_dest_find() {
+    fn_dest_run_cmd "find $1"  2>/dev/null
 }
 
-fn_get_absolute_path() {
-    fn_run_cmd "cd $1;pwd"
+fn_dest_get_absolute_path() {
+    fn_dest_run_cmd "cd $1;pwd"
 }
 
-fn_mkdir() {
-    fn_run_cmd "mkdir -p -- $1"
+fn_dest_mkdir() {
+    fn_dest_run_cmd "mkdir -p -- $1"
 }
 
-fn_rm() {
-    fn_run_cmd "rm -rf -- $1"
+fn_dest_rm() {
+    fn_dest_run_cmd "rm -rf -- $1"
 }
 
-fn_touch() {
-    fn_run_cmd "touch -- $1"
+fn_dest_touch() {
+    fn_dest_run_cmd "touch -- $1"
 }
 
-fn_ln() {
-    fn_run_cmd "ln -s -- $1 $2"
+fn_dest_ln() {
+    fn_dest_run_cmd "ln -s -- $1 $2"
 }
 
-fn_chown_dir() {
-    fn_run_cmd "chown -R -- $1 $2"
+fn_dest_chown_dir() {
+    fn_dest_run_cmd "chown -R -- $1 $2"
 }
 
-fn_chown_link() {
+fn_dest_chown_link() {
     local ownerAndGroup="$1"
     local target="$2"
     if [ -n "$ownerAndGroup" ]; then
-        fn_run_cmd "chown -h -- $ownerAndGroup $target"
+        fn_dest_run_cmd "chown -h -- $ownerAndGroup $target"
     fi
 }
 
@@ -171,7 +171,7 @@ PID_FILE="$PROFILE_FOLDER/$APPNAME.pid"
 
 if [ -f "$PID_FILE" ]; then
     PID="$(cat $PID_FILE)"
-    if fn_process_exists "$PID"; then
+    if fn_local_process_exists "$PID"; then
         fn_log_error "Previous backup task is still active - aborting."
         exit 1
     fi
@@ -196,9 +196,9 @@ echo "$$" > "$PID_FILE"
 # TODO: check that the destination supports hard links
 
 fn_backup_marker_path() { echo "$1/backup.marker"; }
-fn_find_backup_marker() { fn_find "$(fn_backup_marker_path "$1")" 2>/dev/null; }
+fn_dest_find_backup_marker() { fn_dest_find "$(fn_backup_marker_path "$1")" 2>/dev/null; }
 
-if [ -z "$(fn_find_backup_marker "$DEST_FOLDER")" ]; then
+if [ -z "$(fn_dest_find_backup_marker "$DEST_FOLDER")" ]; then
     fn_log_info "Safety check failed - the destination does not appear to be a backup folder or drive (marker file not found)."
     fn_log_info "If it is indeed a backup folder, you may add the marker file by running the following command:"
     fn_log_info ""
@@ -219,21 +219,21 @@ KEEP_DAILIES_DATE=$((EPOCH - 15768000)) # 6 months
 
 export IFS=$'\n' # Better for handling spaces in filenames.
 DEST="$DEST_FOLDER/$NOW"
-PREVIOUS_DEST="$(fn_find_backups | head -n 1)"
+PREVIOUS_DEST="$(fn_dest_find_backups | head -n 1)"
 INPROGRESS_FILE="$DEST_FOLDER/backup.inprogress"
 
 
 # -----------------------------------------------------------------------------
 # Handle case where a previous backup failed or was interrupted.
 # -----------------------------------------------------------------------------
-if [ -n "$(fn_find "$INPROGRESS_FILE")" ]; then
+if [ -n "$(fn_dest_find "$INPROGRESS_FILE")" ]; then
     if [ -n "$PREVIOUS_DEST" ]; then
         # - Last backup is moved to current backup folder so that it can be resumed.
         # - 2nd to last backup becomes last backup.
         fn_log_info "$SSH_FOLDER_PREFIX$INPROGRESS_FILE already exists - the previous backup failed or was interrupted. Backup will resume from there."
-        fn_run_cmd "mv -- $PREVIOUS_DEST $DEST"
-        if [ "$(fn_find_backups | wc -l)" -gt 1 ]; then
-            PREVIOUS_DEST="$(fn_find_backups | sed -n '2p')"
+        fn_dest_run_cmd "mv -- $PREVIOUS_DEST $DEST"
+        if [ "$(fn_dest_find_backups | wc -l)" -gt 1 ]; then
+            PREVIOUS_DEST="$(fn_dest_find_backups | sed -n '2p')"
         else
             PREVIOUS_DEST=""
         fi
@@ -253,7 +253,7 @@ while : ; do
     else
         # If the path is relative, it needs to be relative to the destination. To keep
         # it simple, just use an absolute path. See http://serverfault.com/a/210058/118679
-        PREVIOUS_DEST="$(fn_get_absolute_path "$PREVIOUS_DEST")"
+        PREVIOUS_DEST="$(fn_dest_get_absolute_path "$PREVIOUS_DEST")"
         fn_log_info "Previous backup found - doing incremental backup from $SSH_FOLDER_PREFIX$PREVIOUS_DEST"
         LINK_DEST_OPTION="--link-dest='$PREVIOUS_DEST'"
     fi
@@ -262,9 +262,9 @@ while : ; do
     # Create destination folder if it doesn't already exists
     # -----------------------------------------------------------------------------
 
-    if [ -z "$(fn_find "$DEST -type d" 2>/dev/null)" ]; then
+    if [ -z "$(fn_dest_find "$DEST -type d" 2>/dev/null)" ]; then
         fn_log_info "Creating destination $SSH_FOLDER_PREFIX$DEST"
-        fn_mkdir "$DEST"
+        fn_dest_mkdir "$DEST"
     fi
 
     # -----------------------------------------------------------------------------
@@ -273,7 +273,7 @@ while : ; do
 
     # Default value for $PREV ensures that the most recent backup is never deleted.
     PREV="0000-00-00-000000"
-    for FILENAME in $(fn_find_backups | sort -r); do
+    for FILENAME in $(fn_dest_find_backups | sort -r); do
         BACKUP_DATE=$(basename "$FILENAME")
         TIMESTAMP=$(fn_parse_date $BACKUP_DATE)
 
@@ -287,10 +287,10 @@ while : ; do
             true
         elif [ $TIMESTAMP -ge $KEEP_DAILIES_DATE ]; then
             # Delete all but the most recent of each day.
-            [ "${BACKUP_DATE:0:10}" == "${PREV:0:10}" ] && fn_expire_backup "$FILENAME"
+            [ "${BACKUP_DATE:0:10}" == "${PREV:0:10}" ] && fn_dest_expire_backup "$FILENAME"
         else
             # Delete all but the most recent of each month.
-            [ "${BACKUP_DATE:0:7}" == "${PREV:0:7}" ] && fn_expire_backup "$FILENAME"
+            [ "${BACKUP_DATE:0:7}" == "${PREV:0:7}" ] && fn_dest_expire_backup "$FILENAME"
         fi
 
         PREV=$BACKUP_DATE
@@ -340,7 +340,7 @@ while : ; do
     fn_log_info "Running command:"
     fn_log_info "$CMD"
 
-    fn_touch "$INPROGRESS_FILE"
+    fn_dest_touch "$INPROGRESS_FILE"
     eval $CMD
 
     # -----------------------------------------------------------------------------
@@ -353,12 +353,12 @@ while : ; do
     if [ -n "$NO_SPACE_LEFT" ]; then
         fn_log_warn "No space left on device - removing oldest backup and resuming."
 
-        if [[ "$(fn_find_backups | wc -l)" -lt "2" ]]; then
+        if [[ "$(fn_dest_find_backups | wc -l)" -lt "2" ]]; then
             fn_log_error "No space left on device, and no old backup to delete."
             exit 1
         fi
 
-        fn_expire_backup "$(fn_find_backups | tail -n 1)"
+        fn_dest_expire_backup "$(fn_dest_find_backups | tail -n 1)"
 
         # Resume backup
         continue
@@ -380,12 +380,12 @@ while : ; do
     # Add symlink to last successful backup
     # -----------------------------------------------------------------------------
 
-    fn_rm "$DEST_FOLDER/latest"
-    fn_chown_dir "$OWNER_AND_GROUP" "$DEST"
-    fn_ln "$(basename -- "$DEST")" "$DEST_FOLDER/latest"
-    fn_chown_link "$OWNER_AND_GROUP" "$DEST_FOLDER/latest"
+    fn_dest_rm "$DEST_FOLDER/latest"
+    fn_dest_chown_dir "$OWNER_AND_GROUP" "$DEST"
+    fn_dest_ln "$(basename "$DEST")" "$DEST_FOLDER/latest"
+    fn_dest_chown_link "$OWNER_AND_GROUP" "$DEST_FOLDER/latest"
 
-    fn_rm "$INPROGRESS_FILE"
+    fn_dest_rm "$INPROGRESS_FILE"
     fn_log_info "Deleting $PID_FILE"
     rm -f -- "$PID_FILE"
     rm -f -- "$LOG_FILE"
