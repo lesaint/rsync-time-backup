@@ -77,12 +77,27 @@ fn_is_ssh_directory() {
     [[ "$1" =~ ^[A-Za-z0-9\._%\+\-]+@[A-Za-z0-9.\-]+\:.+$ ]]
 }
 
+fn_is_ssh_directory_with_port() {
+    [[ "$1" =~ ^[A-Za-z0-9\._%\+\-]+@[A-Za-z0-9.\-]+\:[0-9]+\:.+$ ]]
+}
+
 fn_parse_ssh() {
     if fn_is_ssh_directory "$DEST_FOLDER"; then
-        SSH_USER=$(echo "$DEST_FOLDER" | sed -E  's/^([A-Za-z0-9\._%\+\-]+)@([A-Za-z0-9.\-]+)\:(.+)$/\1/')
-        SSH_HOST=$(echo "$DEST_FOLDER" | sed -E  's/^([A-Za-z0-9\._%\+\-]+)@([A-Za-z0-9.\-]+)\:(.+)$/\2/')
-        SSH_DEST_FOLDER=$(echo "$DEST_FOLDER" | sed -E  's/^([A-Za-z0-9\._%\+\-]+)@([A-Za-z0-9.\-]+)\:(.+)$/\3/')
-        SSH_CMD="ssh ${SSH_USER}@${SSH_HOST}"
+        local regexp_pattern="^([A-Za-z0-9\._%\+\-]+)@([A-Za-z0-9.\-]+)\:(.+)$"
+        SSH_USER=$(echo "$DEST_FOLDER" | sed -E  "s/${regexp_pattern}/\1/")
+        SSH_HOST=$(echo "$DEST_FOLDER" | sed -E  "s/${regexp_pattern}/\2/")
+        SSH_PORT="22"
+        SSH_DEST_FOLDER=$(echo "$DEST_FOLDER" | sed -E  "s/${regexp_pattern}/\3/")
+    fi
+    if fn_is_ssh_directory_with_port "$DEST_FOLDER"; then
+        local regexp_pattern="^([A-Za-z0-9\._%\+\-]+)@([A-Za-z0-9.\-]+)\:([0-9]+)\:(.+)$"
+        SSH_USER=$(echo "$DEST_FOLDER" | sed -E  "s/${regexp_pattern}/\1/")
+        SSH_HOST=$(echo "$DEST_FOLDER" | sed -E  "s/${regexp_pattern}/\2/")
+        SSH_PORT=$(echo "$DEST_FOLDER" | sed -E  "s/${regexp_pattern}/\3/")
+        SSH_DEST_FOLDER=$(echo "$DEST_FOLDER" | sed -E  "s/${regexp_pattern}/\4/")
+    fi
+    if [ -n "$SSH_USER" ]; then
+        SSH_CMD="ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST}"
         SSH_FOLDER_PREFIX="${SSH_USER}@${SSH_HOST}:"
     fi
 }
@@ -140,6 +155,7 @@ fn_dest_chown_link() {
 # -----------------------------------------------------------------------------
 SSH_USER=""
 SSH_HOST=""
+SSH_PORT=""
 SSH_DEST_FOLDER=""
 SSH_CMD=""
 SSH_FOLDER_PREFIX=""
@@ -312,7 +328,7 @@ while : ; do
 
     CMD="rsync"
     if [ -n "$SSH_CMD" ]; then
-        CMD="$CMD  -e 'ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'"
+        CMD="$CMD  -e 'ssh -p ${SSH_PORT} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'"
     fi
     CMD="$CMD --compress"
     CMD="$CMD --numeric-ids"
