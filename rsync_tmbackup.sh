@@ -371,30 +371,35 @@ while : ; do
     # -----------------------------------------------------------------------------
     # Check whether rsync reported any errors
     # -----------------------------------------------------------------------------
-
+    rsync_success=0
     if [ -n "$(grep "rsync:" "$LOG_FILE")" ]; then
         fn_log_warn "Rsync reported a warning, please check '$LOG_FILE' for more details."
+        rsync_success=1
     fi
     if [ -n "$(grep "rsync error:" "$LOG_FILE")" ]; then
         fn_log_error "Rsync reported an error, please check '$LOG_FILE' for more details."
-        exit 1
+        rsync_success=1
     fi
 
     # -----------------------------------------------------------------------------
     # Add symlink to last successful backup
     # -----------------------------------------------------------------------------
-
-    fn_dest_rm "$DEST_FOLDER/latest"
-    fn_dest_chown_dir "$OWNER_AND_GROUP" "$DEST"
-    fn_dest_ln "$(basename "$DEST")" "$DEST_FOLDER/latest"
-    fn_dest_chown_link "$OWNER_AND_GROUP" "$DEST_FOLDER/latest"
+    if [ $rsync_success -eq 0 ]; then
+        fn_dest_rm "$DEST_FOLDER/latest"
+        fn_dest_chown_dir "$OWNER_AND_GROUP" "$DEST"
+        fn_dest_ln "$(basename "$DEST")" "$DEST_FOLDER/latest"
+        fn_dest_chown_link "$OWNER_AND_GROUP" "$DEST_FOLDER/latest"
+    fi
 
     fn_dest_rm "$INPROGRESS_FILE"
     fn_log_info "Deleting $PID_FILE"
     rm -f -- "$PID_FILE"
-    rm -f -- "$LOG_FILE"
+    if [ $rsync_success -eq 0 ]; then
+        rm -f -- "$LOG_FILE"
+        fn_log_info "Backup completed without errors."
+    else
+        fn_log_info "Backup completed with warnings and/or errors"
+    fi
 
-    fn_log_info "Backup completed without errors."
-
-    exit 0
+    exit $rsync_success
 done
