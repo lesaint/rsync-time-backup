@@ -44,6 +44,12 @@ An optional exclude file can be provided as a third parameter. It should be comp
 
 * The application is just one bash script that can be easily edited.
 
+* optional parameter allows creating files on remote target with a specifi owner and group
+    * requires either sudo access to command `/bin/chown`
+    * see [example script](https://github.com/lesaint/phanas_scripts/blob/main/autorun_scripts/10_rtb_chown_sudoers.sh)
+    * using `/bin/chown` is preferred over using rsync's `--chown` option because it allows adding more restrictive sudoers permissions
+    * see [this trick](https://stackoverflow.com/questions/9586798/rsync-over-ssh-preserve-ownership-only-for-www-data-owned-files#comment63253879_9590132) to allow rsync's `--chown` option to work and to allow chowning or preserving user/group on remote host
+
 # TODO
 
 * Check source and destination file-system. If one of them is FAT, use the --modify-window rsync parameter (see `man rsync`) with a value of 1 or 2.

@@ -123,7 +123,7 @@ fn_dest_chown_dir() {
     local ownerAndGroup="$1"
     local target="$2"
     if [ -n "$ownerAndGroup" ]; then
-        fn_dest_run_cmd "chown -R -- $ownerAndGroup $target"
+        fn_dest_run_cmd "sudo chown -R -- $ownerAndGroup $target"
     fi
 }
 
@@ -131,7 +131,7 @@ fn_dest_chown_link() {
     local ownerAndGroup="$1"
     local target="$2"
     if [ -n "$ownerAndGroup" ]; then
-        fn_dest_run_cmd "chown -h -- $ownerAndGroup $target"
+        fn_dest_run_cmd "sudo chown -h -- $ownerAndGroup $target"
     fi
 }
 
