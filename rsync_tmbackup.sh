@@ -61,6 +61,16 @@ fn_dest_find_backups() {
     fn_dest_run_cmd "(ls "${DEST_FOLDER}/????-??-??-??????" -1 -d 2>/dev/null | sort -r | sed 's:/*$::')"
 }
 
+fn_dest_find_last_backup() {
+    fn_dest_find_backups | head -n 1
+}
+
+fn_dest_find_penultimate_backup() {
+    if [ "$(fn_dest_find_backups | wc -l)" -gt 1 ]; then
+        fn_dest_find_backups | sed -n '2p'
+    fi
+}
+
 fn_dest_expire_backup() {
     # Double-check that we're on a backup destination to be completely
     # sure we're deleting the right folder
@@ -114,6 +124,11 @@ fn_dest_find() {
     fn_dest_run_cmd "find $1"  2>/dev/null
 }
 
+# tests whether arg is an existing directory by trying to change to it
+fn_dest_dir_exists() {
+    [ "$(fn_dest_run_cmd "cd $1 2>1 1>/dev/null; echo \$?")" == "0" ]
+}
+
 fn_dest_get_absolute_path() {
     fn_dest_run_cmd "cd $1;pwd"
 }
@@ -147,6 +162,32 @@ fn_dest_chown_link() {
     local target="$2"
     if [ -n "$ownerAndGroup" ]; then
         fn_dest_run_cmd "sudo chown -h -- $ownerAndGroup $target"
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Test code
+# -----------------------------------------------------------------------------
+fn_is_test1_active() {
+    [ -n ${TEST1} ]
+}
+
+fn_test_1_echo_vars() {
+    echo "TEST1: SYM_LINK=$SYM_LINK DEST=$DEST LINK_DEST=$LINK_DEST LAST_BACKUP_DIR=$LAST_BACKUP_DIR"
+}
+
+fn_test_1_step_1() {
+    if fn_is_test1_active; then
+        fn_test_1_echo_vars
+    fi
+}
+
+fn_test_1_step_2() {
+    if fn_is_test1_active; then
+        fn_test_1_echo_vars
+        # end test
+        echo "TEST1: end execution"
+        exit 0
     fi
 }
 
@@ -232,33 +273,92 @@ fi
 # -----------------------------------------------------------------------------
 
 # Date logic
-NOW=$(date +"%Y-%m-%d-%H%M%S")
+fn_now() {
+    if [ -n ${INJECT_NOW} ]; then
+        echo "$INJECT_NOW"
+    else
+        date +"%Y-%m-%d-%H%M%S"
+    fi
+}
+
+NOW=$(fn_now)
 EPOCH=$(date "+%s")
 KEEP_ALL_DATE=$((EPOCH - 86400))       # 1 day ago
 KEEP_DAILIES_DATE=$((EPOCH - 15768000)) # 6 months
 
 export IFS=$'\n' # Better for handling spaces in filenames.
 DEST="$DEST_FOLDER/$NOW"
-PREVIOUS_DEST="$(fn_dest_find_backups | head -n 1)"
+SYM_LINK="$DEST_FOLDER/latest"
 INPROGRESS_FILE="$DEST_FOLDER/backup.inprogress"
 
+fn_dest_find_symlink_target_dir() {
+    SYM_LINK_TARGET_DIR=""
+
+    if [ -n "$(fn_dest_find "$SYM_LINK")" ]; then
+        local link_dest=""
+        # do not use readlink's "-f" option on purpose: this is a small but cheap defence against symlink outside the DEST_FOLDER
+        link_dest="$(fn_dest_run_cmd "readlink $SYM_LINK")"
+        if [ "${link_dest:0:1}" == "." ]; then
+            fn_log_error "$SSH_FOLDER_PREFIX/$SYM_LINK doesn't not target $SSH_FOLDER_PREFIX/$DEST_FOLDER directly (\"$link_dest\" starts with a dot). Fix it."
+            exit 1
+        fi
+        link_dest="$DEST_FOLDER/$link_dest"
+
+        # make sure the symlink's target exists
+        if fn_dest_dir_exists "$link_dest"; then
+            fn_log_info "$SSH_FOLDER_PREFIX$SYM_LINK exists and targets existing directory $SSH_FOLDER_PREFIX$link_dest."
+            SYM_LINK_TARGET_DIR="$link_dest"
+        else
+            fn_log_warn "$SSH_FOLDER_PREFIX/$SYM_LINK points to non existing directory $link_dest. Ignoring sym link."
+        fi
+    fi    
+}
+
+LAST_BACKUP_DIR="$(fn_dest_find_last_backup)"
+# sets SYM_LINK_TARGET_DIR
+fn_dest_find_symlink_target_dir
+
+# Link destination (aka. base directory for incrementation backup is the target directory of SYM_LINK if SYM_LINK and the target directory exist
+# otherwise link destination is the most recent backup directory (which does not exist when script runs for the 1st time)
+if [ -n "$SYM_LINK_TARGET_DIR" ]; then
+    LINK_DEST="$SYM_LINK_TARGET_DIR"
+else
+    LINK_DEST="$(fn_dest_find_last_backup)"
+fi
+
+fn_test_1_step_1
 
 # -----------------------------------------------------------------------------
 # Handle case where a previous backup failed or was interrupted.
 # -----------------------------------------------------------------------------
 if [ -n "$(fn_dest_find "$INPROGRESS_FILE")" ]; then
-    if [ -n "$PREVIOUS_DEST" ]; then
-        # - Last backup is moved to current backup folder so that it can be resumed.
-        # - 2nd to last backup becomes last backup.
+    if [ -n "$LAST_BACKUP_DIR" ]; then
         fn_log_info "$SSH_FOLDER_PREFIX$INPROGRESS_FILE already exists - the previous backup failed or was interrupted. Backup will resume from there."
-        fn_dest_run_cmd "mv -- $PREVIOUS_DEST $DEST"
-        if [ "$(fn_dest_find_backups | wc -l)" -gt 1 ]; then
-            PREVIOUS_DEST="$(fn_dest_find_backups | sed -n '2p')"
-        else
-            PREVIOUS_DEST=""
+        
+        # NOMINAL CASE, backup was interrupted: LINK_DEST is last_backup-1 => use LINK_DEST, rename last_backup to dest
+        # STARTUP CASE, no SYM_LINK, one (interrupted) backup: LINK_DEST is empty, no incremental backup => use LINK_DEST (empty), rename last_backup to dest
+        # ERRONOUS SYMLINK, missing SYMLINK or points to non existing directory: LINK_DEST is last_backup => use last_backup-1, rename last_backup to dest
+        # POSSIBLE CASE: LINK_DEST is last_backup-X, where X > 1 => use LINK_DEST (and, optionally, clean up backups in between), rename last_backup to dest
+
+        fn_dest_run_cmd "mv -- $LAST_BACKUP_DIR $DEST"
+        if [ -n "$LINK_DEST" ]; then
+            # verify LINK_DEST still exists, if it pointed to LAST_BACKUP_DIR, it's been renamed
+            # if so, LINK_DEST must be SYM_LINK_TARGET_DIR if it still points to an existing directory (could also have been pointing to LAST_BACKUP_DIR and been renamed)
+            # last, we default to last_backup-1 (if it exists) 
+            if ! fn_dest_dir_exists "$LINK_DEST"; then
+                if [ -n "$SYM_LINK_TARGET_DIR" ] && fn_dest_dir_exists "$SYM_LINK_TARGET_DIR"; then
+                    LINK_DEST="$SYM_LINK_TARGET_DIR"
+                else
+                    LINK_DEST="$(fn_dest_find_penultimate_backup)"
+                fi
+            fi
         fi
+        
+        # TODO minor: delete any backup between $LINK_DEST and $DEST
     fi
 fi
+
+fn_test_1_step_2
 
 # Run in a loop to handle the "No space left on device" logic.
 while : ; do
@@ -401,10 +501,10 @@ while : ; do
     # Add symlink to last successful backup
     # -----------------------------------------------------------------------------
     if [ $rsync_success -eq 0 ]; then
-        fn_dest_rm "$DEST_FOLDER/latest"
+        fn_dest_rm "$SYM_LINK"
         fn_dest_chown_dir "$OWNER_AND_GROUP" "$DEST"
-        fn_dest_ln "$(basename "$DEST")" "$DEST_FOLDER/latest"
-        fn_dest_chown_link "$OWNER_AND_GROUP" "$DEST_FOLDER/latest"
+        fn_dest_ln "$(basename "$DEST")" "$SYM_LINK"
+        fn_dest_chown_link "$OWNER_AND_GROUP" "$SYM_LINK"
     fi
 
     fn_dest_rm "$INPROGRESS_FILE"
