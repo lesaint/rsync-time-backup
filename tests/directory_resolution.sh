@@ -63,6 +63,15 @@ fn_latest_symlink() {
     ln -s "$target_dir" "latest"
 }
 
+#####################################
+#--- tear down function for test ---#
+#####################################
+fn_teardown_test() {
+    echo ""
+    echo "Clean up: deleting ${TEST_DIR}..."
+    rm -Rf -- "$TEST_DIR"
+}
+
 #######################
 #--- test executor ---#
 #######################
@@ -98,7 +107,7 @@ fn_run_test() {
 ####################
 #--- assertions ---#
 ####################
-# checks whether
+# checks whether a single line is present in TEST_OUTPUT
 fn_test_output_contains_line() {
     local expected="$1"
     # declare line local to prevent leak of lines read in this function out of it
@@ -159,6 +168,7 @@ fn_test_output_ends_with() {
 fn_prepare_test
 # same source dir is used for all tests
 fn_prepare_source_dir
+
 
 fn_prepare_no_marker_file() {
     # do nothing
@@ -343,3 +353,5 @@ fn_test_output_ends_with \
     "rsync_tmbackup: target/4th_backup_interrupted_and_bad_symlink/backup.inprogress already exists - the previous backup failed or was interrupted. Backup will resume from there." \
     "TEST1: SYM_LINK=target/4th_backup_interrupted_and_bad_symlink/latest DEST=target/4th_backup_interrupted_and_bad_symlink/${INJECT_NOW} LINK_DEST=target/4th_backup_interrupted_and_bad_symlink/2023-04-30-181436 LAST_BACKUP_DIR=target/4th_backup_interrupted_and_bad_symlink/2023-07-27-213919" \
     "TEST1: end execution"
+
+fn_teardown_test
