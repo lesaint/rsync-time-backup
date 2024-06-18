@@ -169,7 +169,7 @@ fn_dest_chown_link() {
 # Test code
 # -----------------------------------------------------------------------------
 fn_is_test1_active() {
-    [ -n ${TEST1} ]
+    [ -n "${TEST1}" ]
 }
 
 fn_test_1_echo_vars() {
@@ -274,7 +274,7 @@ fi
 
 # Date logic
 fn_now() {
-    if [ -n ${INJECT_NOW} ]; then
+    if [ -n "${INJECT_NOW}" ]; then
         echo "$INJECT_NOW"
     else
         date +"%Y-%m-%d-%H%M%S"
@@ -369,14 +369,14 @@ while : ; do
     # -----------------------------------------------------------------------------
 
     LINK_DEST_OPTION=""
-    if [ -z "$PREVIOUS_DEST" ]; then
+    if [ -z "$LINK_DEST" ]; then
         fn_log_info "No previous backup - creating new one."
     else
         # If the path is relative, it needs to be relative to the destination. To keep
         # it simple, just use an absolute path. See http://serverfault.com/a/210058/118679
-        PREVIOUS_DEST="$(fn_dest_get_absolute_path "$PREVIOUS_DEST")"
-        fn_log_info "Previous backup found - doing incremental backup from $SSH_FOLDER_PREFIX$PREVIOUS_DEST"
-        LINK_DEST_OPTION="--link-dest='$PREVIOUS_DEST'"
+        LINK_DEST="$(fn_dest_get_absolute_path "$LINK_DEST")"
+        fn_log_info "Previous complete backup found - doing incremental backup from $SSH_FOLDER_PREFIX$LINK_DEST"
+        LINK_DEST_OPTION="--link-dest='$LINK_DEST'"
     fi
 
     # -----------------------------------------------------------------------------
