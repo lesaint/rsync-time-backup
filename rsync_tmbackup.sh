@@ -126,7 +126,7 @@ fn_dest_find() {
 
 # tests whether arg is an existing directory by trying to change to it
 fn_dest_dir_exists() {
-    [ "$(fn_dest_run_cmd "cd $1 2>1 1>/dev/null; echo \$?")" == "0" ]
+    [ "$(fn_dest_run_cmd "cd $1 2>&1 1>/dev/null; echo \$?")" == "0" ]
 }
 
 fn_dest_get_absolute_path() {
@@ -317,6 +317,7 @@ fn_dest_find_symlink_target_dir() {
 LAST_BACKUP_DIR="$(fn_dest_find_last_backup)"
 # sets SYM_LINK_TARGET_DIR
 fn_dest_find_symlink_target_dir
+
 
 # Link destination (aka. base directory for incrementation backup is the target directory of SYM_LINK if SYM_LINK and the target directory exist
 # otherwise link destination is the most recent backup directory (which does not exist when script runs for the 1st time)
